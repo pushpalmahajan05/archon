@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ARCHON — Change Impact Analysis</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3352;
+      --accent: #6366f1;
+      --accent2: #818cf8;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --red: #ef4444;
+      --orange: #f97316;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+
+    /* Header */
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; align-items: center; gap: 16px; }
+    header h1 { font-size: 1.4rem; font-weight: 700; color: var(--accent2); letter-spacing: 2px; }
+    header span { color: var(--muted); font-size: 0.85rem; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-left: auto; }
+
+    /* Layout */
+    main { max-width: 1100px; margin: 0 auto; padding: 32px 24px; display: grid; grid-template-columns: 340px 1fr; gap: 24px; }
+    @media (max-width: 768px) { main { grid-template-columns: 1fr; } }
+
+    /* Panel */
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+    .panel h2 { font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 16px; }
+
+    /* Form */
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; margin-top: 14px; }
+    input, textarea, select {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 7px; padding: 10px 12px; font-size: 0.9rem;
+      outline: none; transition: border 0.2s;
+    }
+    input:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 90px; }
+    button {
+      width: 100%; margin-top: 18px; padding: 12px; border-radius: 7px;
+      border: none; background: var(--accent); color: #fff; font-size: 0.95rem;
+      font-weight: 600; cursor: pointer; transition: background 0.2s;
+    }
+    button:hover { background: var(--accent2); }
+    button:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+    /* Ingest section */
+    .ingest-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); font-weight: 500; margin-top: 10px; }
+    .ingest-btn:hover { background: var(--border); }
+
+    /* Repos list */
+    .repo-list { list-style: none; margin-top: 10px; }
+    .repo-list li {
+      padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+      transition: background 0.15s; border: 1px solid transparent;
+    }
+    .repo-list li:hover { background: var(--surface2); }
+    .repo-list li.selected { border-color: var(--accent); background: var(--surface2); }
+
+    /* Results */
+    #results { display: flex; flex-direction: column; gap: 16px; }
+    .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .result-card .card-header { padding: 14px 20px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 0.9rem; }
+    .result-card .card-body { padding: 18px 20px; }
+
+    /* Confidence badge */
+    .confidence { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; }
+    .conf-bar { height: 6px; border-radius: 3px; background: var(--border); width: 80px; overflow: hidden; }
+    .conf-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+
+    /* Risk badge */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+    .badge-low { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge-medium { background: rgba(234,179,8,0.15); color: var(--yellow); }
+    .badge-high { background: rgba(249,115,22,0.15); color: var(--orange); }
+    .badge-critical { background: rgba(239,68,68,0.15); color: var(--red); }
+
+    /* Lists */
+    .impact-list { list-style: none; }
+    .impact-list li { padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 0.87rem; display: flex; gap: 8px; align-items: flex-start; }
+    .impact-list li:last-child { border-bottom: none; }
+    .bullet { color: var(--accent2); flex-shrink: 0; }
+
+    /* Evidence */
+    .ev-item { background: var(--surface2); border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; font-size: 0.82rem; }
+    .ev-item .ev-source { color: var(--accent2); font-weight: 600; margin-bottom: 4px; }
+    .ev-item .ev-content { color: var(--muted); }
+
+    /* Spinner */
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .empty .icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+    /* Alert */
+    .alert { padding: 12px 16px; border-radius: 7px; font-size: 0.85rem; margin-bottom: 16px; }
+    .alert-warn { background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); color: var(--yellow); }
+    .alert-info { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); color: var(--accent2); }
+
+    /* Meta */
+    .meta { font-size: 0.78rem; color: var(--muted); margin-top: 8px; display: flex; gap: 16px; flex-wrap: wrap; }
+    .meta span { display: flex; align-items: center; gap: 4px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+    .tab { padding: 6px 14px; border-radius: 6px; font-size: 0.82rem; cursor: pointer; color: var(--muted); transition: all 0.2s; }
+    .tab.active { background: var(--surface2); color: var(--text); }
+    .tab:hover:not(.active) { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⬡ ARCHON</h1>
+  <span>Agentic Change-Impact Analysis</span>
+  <div class="status-dot" id="apiDot" title="API Status"></div>
+</header>
+
+<main>
+  <!-- ── Left panel ─────────────────────────────────────── -->
+  <aside>
+    <div class="panel">
+      <h2>Analysis</h2>
+
+      <label>Repository</label>
+      <select id="repoSelect" onchange="setRepo(this.value)">
+        <option value="">— select or type below —</option>
+      </select>
+
+      <label>Or enter name manually</label>
+      <input id="repoInput" type="text" placeholder="my-repo" />
+
+      <label>Change Request</label>
+      <textarea id="queryInput" placeholder="Replace Redis with DynamoDB. What are the impacts?"></textarea>
+
+      <button id="analyzeBtn" onclick="analyze()">Analyze</button>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>Ingest Repository</h2>
+      <label>Git URL</label>
+      <input id="ingestUrl" type="text" placeholder="https://github.com/user/repo.git" />
+      <label>Name (optional)</label>
+      <input id="ingestName" type="text" placeholder="my-repo" />
+      <button class="ingest-btn" onclick="ingest()">⬇ Clone &amp; Ingest</button>
+      <div id="ingestStatus" style="font-size:0.8rem;color:var(--muted);margin-top:8px;"></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>Repositories</h2>
+      <ul class="repo-list" id="repoList">
+        <li style="color:var(--muted);font-size:0.83rem">Loading…</li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- ── Right panel ────────────────────────────────────── -->
+  <section>
+    <div id="results">
+      <div class="empty">
+        <div class="icon">⬡</div>
+        <p>Run an analysis to see results here.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const API = '';   // same origin
+
+// ── Init ───────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  checkHealth();
+  loadRepos();
+});
+
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    const d = await r.json();
+    document.getElementById('apiDot').style.background = d.status === 'ok' ? '#22c55e' : '#ef4444';
+  } catch { document.getElementById('apiDot').style.background = '#ef4444'; }
+}
+
+async function loadRepos() {
+  try {
+    const r = await fetch(`${API}/repositories`);
+    const d = await r.json();
+    const repos = d.repositories || [];
+    const select = document.getElementById('repoSelect');
+    const list = document.getElementById('repoList');
+
+    select.innerHTML = '<option value="">— select —</option>';
+    repos.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      select.appendChild(opt);
+    });
+
+    list.innerHTML = repos.length
+      ? repos.map(n => `<li onclick="pickRepo('${n}')">${n}</li>`).join('')
+      : '<li style="color:var(--muted);font-size:0.83rem">No repositories ingested yet.</li>';
+  } catch(e) { console.error(e); }
+}
+
+function setRepo(val) {
+  if (val) document.getElementById('repoInput').value = val;
+}
+
+function pickRepo(name) {
+  document.getElementById('repoInput').value = name;
+  document.getElementById('repoSelect').value = name;
+  document.querySelectorAll('.repo-list li').forEach(li => {
+    li.classList.toggle('selected', li.textContent === name);
+  });
+}
+
+// ── Analyze ────────────────────────────────────────────────────────
+async function analyze() {
+  const repo = document.getElementById('repoInput').value.trim() || document.getElementById('repoSelect').value;
+  const query = document.getElementById('queryInput').value.trim();
+  if (!repo) { alert('Enter a repository name.'); return; }
+  if (!query) { alert('Enter a change request query.'); return; }
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analyzing…';
+
+  showLoading();
+
+  try {
+    const r = await fetch(`${API}/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repository: repo, query })
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.detail || r.statusText);
+    }
+    const data = await r.json();
+    renderResults(data, repo, query);
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Analyze';
+  }
+}
+
+// ── Ingest ─────────────────────────────────────────────────────────
+async function ingest() {
+  const url = document.getElementById('ingestUrl').value.trim();
+  const name = document.getElementById('ingestName').value.trim();
+  if (!url) { alert('Enter a git URL.'); return; }
+
+  const statusEl = document.getElementById('ingestStatus');
+  statusEl.textContent = '⏳ Starting ingestion…';
+
+  try {
+    const r = await fetch(`${API}/ingest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, name: name || null })
+    });
+    const d = await r.json();
+    const repoName = d.name;
+    statusEl.textContent = `⏳ Ingesting ${repoName}…`;
+    pollIngestStatus(repoName, statusEl);
+  } catch(e) {
+    statusEl.textContent = `✗ ${e.message}`;
+  }
+}
+
+async function pollIngestStatus(name, el) {
+  for (let i = 0; i < 120; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    try {
+      const r = await fetch(`${API}/ingest/${name}/status`);
+      const d = await r.json();
+      if (d.status === 'done') {
+        el.textContent = `✓ Done! Files: ${d.summary?.files ?? '?'}, Vectors: ${d.summary?.vectors ?? '?'}`;
+        loadRepos();
+        return;
+      } else if (d.status === 'failed') {
+        el.textContent = `✗ Failed: ${d.error}`;
+        return;
+      }
+      el.textContent = `⏳ Ingesting ${name}…`;
+    } catch(e) { break; }
+  }
+  el.textContent = 'Timed out waiting for ingestion.';
+}
+
+// ── Render ─────────────────────────────────────────────────────────
+function showLoading() {
+  document.getElementById('results').innerHTML = `
+    <div class="empty">
+      <div><span class="spinner"></span></div>
+      <p style="margin-top:16px;color:var(--muted)">Running agents… this may take 30–60 seconds with a live API key.</p>
+    </div>`;
+}
+
+function showError(msg) {
+  document.getElementById('results').innerHTML = `
+    <div class="alert alert-warn">✗ Error: ${escHtml(msg)}</div>`;
+}
+
+function renderResults(d, repo, query) {
+  const placeholder = (d.agent_findings?.repository?.mode === 'placeholder');
+  let html = '';
+
+  if (placeholder) {
+    html += `<div class="alert alert-warn">⚠ Running in placeholder mode — add your GROQ_API_KEY to .env to enable real analysis.</div>`;
+  }
+
+  // Confidence
+  const conf = parseFloat(d.confidence) || 0;
+  const confColor = conf >= 0.7 ? '#22c55e' : conf >= 0.4 ? '#eab308' : '#ef4444';
+
+  html += card('🔍 Recommendation', `
+    <p style="font-size:0.95rem;line-height:1.6">${escHtml(d.recommendation || 'N/A')}</p>
+    ${d.reasoning ? `<p style="margin-top:10px;font-size:0.85rem;color:var(--muted)">${escHtml(d.reasoning.substring(0,500))}</p>` : ''}
+    <div class="meta">
+      <span>📁 ${escHtml(repo)}</span>
+      <span>⏱ ${d.processing_time_seconds}s</span>
+      <span>🔑 Session: ${d.session_id}</span>
+      <span class="confidence">Confidence:
+        <div class="conf-bar"><div class="conf-fill" style="width:${conf*100}%;background:${confColor}"></div></div>
+        ${(conf*100).toFixed(0)}%
+      </span>
+    </div>
+  `);
+
+  if (d.direct_impact?.length || d.indirect_impact?.length) {
+    html += card('💥 Impact', `
+      ${d.direct_impact?.length ? `
+        <p style="font-size:0.8rem;font-weight:600;color:var(--muted);margin-bottom:8px">DIRECT</p>
+        <ul class="impact-list">${d.direct_impact.map(c => `<li><span class="bullet">▸</span>${escHtml(String(c))}</li>`).join('')}</ul>` : ''}
+      ${d.indirect_impact?.length ? `
+        <p style="font-size:0.8rem;font-weight:600;color:var(--muted);margin:12px 0 8px">INDIRECT</p>
+        <ul class="impact-list">${d.indirect_impact.map(c => `<li><span class="bullet">◦</span>${escHtml(String(c))}</li>`).join('')}</ul>` : ''}
+    `);
+  }
+
+  if (d.risks?.length) {
+    const riskHtml = d.risks.map(r => {
+      const desc = typeof r === 'string' ? r : (r.description || JSON.stringify(r));
+      const level = (typeof r === 'object' ? r.level : 'MEDIUM') || 'MEDIUM';
+      const mit = typeof r === 'object' ? r.mitigation : '';
+      return `<li style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span class="badge badge-${level.toLowerCase()}">${level}</span>
+          <span style="font-size:0.87rem">${escHtml(desc)}</span>
+        </div>
+        ${mit ? `<p style="font-size:0.8rem;color:var(--muted);margin-left:4px">↳ ${escHtml(mit)}</p>` : ''}
+      </li>`;
+    }).join('');
+    html += card('⚠ Risks', `<ul class="impact-list">${riskHtml}</ul>`);
+  }
+
+  if (d.security_implications?.length) {
+    html += card('🔒 Security Implications', `
+      <ul class="impact-list">
+        ${d.security_implications.map(s => `<li><span class="bullet">▸</span>${escHtml(String(s))}</li>`).join('')}
+      </ul>
+    `);
+  }
+
+  if (d.historical_context) {
+    html += card('📜 Historical Context', `<p style="font-size:0.87rem;line-height:1.6;color:var(--muted)">${escHtml(d.historical_context)}</p>`);
+  }
+
+  if (d.alternatives?.length) {
+    html += card('🔀 Alternatives', `
+      <ul class="impact-list">
+        ${d.alternatives.map(a => `<li><span class="bullet">▸</span>${escHtml(String(a))}</li>`).join('')}
+      </ul>
+    `);
+  }
+
+  if (d.evidence?.length) {
+    const evHtml = d.evidence.slice(0, 5).map(ev => {
+      if (typeof ev === 'string') return `<div class="ev-item"><div class="ev-content">${escHtml(ev)}</div></div>`;
+      return `<div class="ev-item">
+        <div class="ev-source">[${escHtml(ev.type || '?')}] ${escHtml(ev.source || '')}</div>
+        <div class="ev-content">${escHtml(String(ev.content || '').substring(0,150))}</div>
+      </div>`;
+    }).join('');
+    html += card('📋 Evidence', evHtml);
+  }
+
+  if (d.uncertainties?.length) {
+    html += card('❓ Uncertainties', `
+      <ul class="impact-list">
+        ${d.uncertainties.map(u => `<li><span class="bullet">?</span>${escHtml(String(u))}</li>`).join('')}
+      </ul>
+    `);
+  }
+
+  document.getElementById('results').innerHTML = html;
+}
+
+function card(title, body) {
+  return `<div class="result-card">
+    <div class="card-header">${title}</div>
+    <div class="card-body">${body}</div>
+  </div>`;
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>
